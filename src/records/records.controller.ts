@@ -39,7 +39,7 @@ export class RecordsController {
   autocomplete(@Request() req, @Query('query') query: string) {
     return this.recordsService.autocomplete(req.user.userId, query);
   }
-  
+
   @Get(':id')
   findOne(@Param('id') id: string, @Request() req) {
     return this.recordsService.findOne(id, req.user.userId);
@@ -76,9 +76,9 @@ export class RecordsController {
     return this.recordsService.lockRecord(id, req.user.userId);
   }
 
-  // @Post(':id/unlock')
+  @Post(':id/unlock')
   // @UseGuards(AuthGuard('jwt'))
-  // unlock(@Param('id') id: string, @Request() req) {
-  //   return this.recordsService.unlockRecord(id);
-  // }
+  unlock(@Param('id') id: string, @Request() req) {
+    return this.recordsService.unlockRecord(id);
+  }
 }

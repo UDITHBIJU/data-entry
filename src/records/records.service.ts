@@ -25,7 +25,6 @@ export class RecordsService {
   ) {}
 
   async create(createRecordDto: CreateRecordDto, userId: string) {
-
     const user = await this.usersService.findOne(userId);
     const batch = await this.batchesService.findOrCreateCurrentBatch();
 
@@ -37,6 +36,17 @@ export class RecordsService {
     });
 
     const savedRecord = await this.recordsRepository.save(record);
+    const searchText = this.generateSearchText(savedRecord);
+    await this.recordsRepository
+      .createQueryBuilder()
+      .update(Record)
+      .set({
+        searchVector: () =>
+          `to_tsvector('english', '${searchText.replace(/'/g, "''")}')`,
+      })
+      .where('id = :id', { id: savedRecord.id })
+      .execute();
+
     await this.createAuditLog('create', {}, savedRecord, userId);
     return savedRecord;
   }
@@ -105,15 +115,35 @@ export class RecordsService {
         console.warn(`No assignedTo or lockedBy for unlocked record ID ${id}`);
       }
     }
+    return record;
   }
   async update(id: string, updateRecordDto: UpdateRecordDto, userId: string) {
     const record = await this.findOne(id, userId);
     const oldData = { ...record };
-    Object.assign(record, updateRecordDto);
-    record.searchVector = this.generateSearchVector(UpdateRecordDto);
-
+    
+    const fieldsToUpdate = Object.fromEntries(
+      Object.entries(updateRecordDto).filter(
+        ([_, value]) => value !== undefined,
+      ),
+    );
+  
+    
+    Object.assign(record, fieldsToUpdate);
+    
     const updatedRecord = await this.recordsRepository.save(record);
-    await this.createAuditLog(
+    const searchText = this.generateSearchText(updatedRecord);
+    
+    await this.recordsRepository
+      .createQueryBuilder()
+      .update(Record)
+      .set({
+        searchVector: () =>
+          `to_tsvector('english', '${searchText.replace(/'/g, "''")}')`,
+      })
+      .where('id = :id', { id: updatedRecord.id })
+      .execute();
+   
+      await this.createAuditLog(
       'update',
       this.getChanges(oldData, updatedRecord),
       updatedRecord,
@@ -138,8 +168,8 @@ export class RecordsService {
     return updatedRecord;
   }
 
-  private generateSearchVector(data: any): string {
-    return `${data.propertyAddress} ${data.borrowerName} ${data.apn}`.toLocaleLowerCase();
+  private generateSearchText(data: any): string {
+    return `${data.propertyAddress || ''} ${data.borrowerName || ''} ${data.apn || ''}`.toLowerCase();
   }
 
   private async createAuditLog(
@@ -173,15 +203,20 @@ export class RecordsService {
   async autocomplete(userId: string, query: string) {
     if (!query) throw new BadRequestException('Query is required');
     const user = await this.usersService.findOne(userId);
+    
     const suggestions = await this.recordsRepository
       .createQueryBuilder('record')
       .select(['record.borrowerName', 'record.propertyAddress', 'record.apn'])
       .where('record.assignedToId = :userId', { userId: user.id })
       .andWhere('record.isLocked = :isLocked', { isLocked: false })
-      .andWhere('record.searchVector @@ to_tsquery(:search)', {
-        search: query + ':*',
-      })
-      .take(5) // Limit to 5 suggestions
+      .andWhere(
+        '(record.searchVector @@ plainto_tsquery(:search) OR record.searchVector @@ to_tsquery(:prefixSearch))',
+        {
+          search: query,
+          prefixSearch: query.toLowerCase() + ':*',
+        },
+      )
+      .take(5)
       .getMany();
 
     return suggestions.map((record) => ({
