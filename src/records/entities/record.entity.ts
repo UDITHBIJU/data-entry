@@ -27,7 +27,7 @@ export class Record {
   loanOfficerName: string;
  
   @Column()
-  nmlssId: string;
+  nmlsId: string;
 
   @Column()
   loanAmount: number;
@@ -35,7 +35,7 @@ export class Record {
   @Column()
   loanTerm: number;
 
-  @Column({ type: 'decimal', generatedType: 'VIRTUAL', select: false })
+  @Column({ type: 'decimal', generatedType: 'VIRTUAL',nullable:true, select: false })
   downPayment: number;
 
   @Column()
@@ -56,11 +56,11 @@ export class Record {
   @Column({ default: false })
   isLocked: boolean;
 
-  @Column({ nullable: true })
-  lockedBy: string;
+  @Column({type: 'varchar', nullable: true })
+  lockedBy: string | null;
 
   @Column({ type: 'timestamp', nullable: true })
-  lockTimestamp: Date;
+  lockTimestamp: Date  | null;
 
   @Column({ default: 'pending' })
   status: string;

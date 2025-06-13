@@ -4,7 +4,8 @@ import { databaseConfig } from './config/database.config';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ConfigModule,ConfigService} from '@nestjs/config';
-
+import { RecordsModule } from './records/records.module';
+import { BatchesModule } from './batches/batches.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -19,6 +20,8 @@ import { ConfigModule,ConfigService} from '@nestjs/config';
     }),
     UsersModule,
     AuthModule,
+    RecordsModule,
+    BatchesModule, 
   ],
 })
 export class AppModule {}
